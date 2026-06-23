@@ -180,45 +180,66 @@ import { getFirestore, collection, addDoc, query, where, orderBy, onSnapshot, se
 
         // --- LIVE FEED LOGIC ---
         function startLiveFeed(roomName) {
-            // Cut off previous listener if switching rooms
-            if (unsubscribeFeed) unsubscribeFeed();
 
-            currentRoomTitle.innerText = roomSelect.options[roomSelect.selectedIndex].text;
-            feedContainer.innerHTML = "Loading posts...";
+if (unsubscribeFeed) unsubscribeFeed();
 
-            // Query database: look inside "posts" collection for current room, sort by newest
-            const q = query(
-                collection(db, "posts"),
-                where("room", "==", roomName),
-                orderBy("timestamp", "desc")
-            );
+currentRoomTitle.innerText =
+    roomSelect.options[roomSelect.selectedIndex].text;
 
-            // Real-time listener: triggers instantly whenever data changes
-            unsubscribeFeed = onSnapshot(q, (snapshot) => {
-    console.log("Posts found:", snapshot.size);
+feedContainer.innerHTML = "Loading posts...";
 
-    feedContainer.innerHTML = "";
+const q = query(
+    collection(db, "posts"),
+    where("room", "==", roomName),
+    orderBy("timestamp", "desc")
+);
 
-    snapshot.forEach((doc) => {
-        console.log(doc.data());
-    });
-});
+unsubscribeFeed = onSnapshot(
+    q,
+    (snapshot) => {
+
+        console.log("Posts found:", snapshot.size);
+
+        feedContainer.innerHTML = "";
+
+        if (snapshot.empty) {
+            feedContainer.innerHTML =
+                "<p>No posts yet. Be the first!</p>";
+            return;
+        }
+
+        snapshot.forEach((doc) => {
+
+            const data = doc.data();
+
+            const timeString = data.timestamp?.toDate
+                ? data.timestamp.toDate().toLocaleString()
+                : "Just now";
+
+            const postElement = document.createElement("div");
+
+            postElement.className = "post";
+
+            postElement.innerHTML = `
+                <div class="post-meta">
+                    <strong>${data.author}</strong> • ${timeString}
+                </div>
+                <div>${data.text}</div>
+            `;
+
+            feedContainer.appendChild(postElement);
+        });
+
+    },
+    (error) => {
+        console.error("Feed Error:", error);
+    }
+);
+
+}
 
 
-                snapshot.forEach((doc) => {
-                    const data = doc.data();
-                    const timeString = data.timestamp?.toDate
-        ? data.timestamp.toDate().toLocaleString()
-        : "Just now";
-                    const postElement = document.createElement('div');
-                    postElement.className = 'post';
-                    postElement.innerHTML = `
-                        <div class="post-meta"><strong>${data.author}</strong> • ${timeString}</div>
-                        <div>${data.text}</div>
-                    `;
-                    feedContainer.appendChild(postElement);
-                });
-        
+
 
         // Handle Room Changes
         roomSelect.addEventListener('change', () => {
