@@ -106,21 +106,27 @@
     </div>
 
     <!-- Firebase SDK Scripts Modules -->
-    <script type="module">
-        import { initializeApp } from "https://gstatic.com";
-        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://gstatic.com";
-        import { getFirestore, collection, addDoc, query, where, orderBy, onSnapshot } from "https://gstatic.com";
-        // ⚠️ REPLACE THIS WITH YOUR OWN FIREBASE CONFIG FROM STEP 4
-        const firebaseConfig = {
-           apiKey: "AIzaSyB830A8nKklHBRPJ3kLHFasZEA0hGdSAvM",
+<script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  const firebaseConfig = {
+    apiKey: "AIzaSyB830A8nKklHBRPJ3kLHFasZEA0hGdSAvM",
     authDomain: "social-room-app.firebaseapp.com",
     projectId: "social-room-app",
     storageBucket: "social-room-app.firebasestorage.app",
     messagingSenderId: "1015167246361",
     appId: "1:1015167246361:web:22386499e1381c71c14a88",
     measurementId: "G-75HEFGWEL5"
-        };
+  };
 
+  // Initialize Firebase
+  const analytics = getAnalytics(app);
         // Initialize App Services
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
