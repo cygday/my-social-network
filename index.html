@@ -110,7 +110,7 @@
   // Import the functions you need from the SDKs you need
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, query, where, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, query, where, orderBy, onSnapshot, serverTimestamp} from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
   // TODO: Add SDKs for Firebase products that you want to use
   // https://firebase.google.com/docs/web/setup#available-libraries
 
@@ -132,7 +132,7 @@ import { getFirestore, collection, addDoc, query, where, orderBy, onSnapshot } f
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // Global Variables
+	// Global Variables
         let currentUser = null;
         let unsubscribeFeed = null; 
 
@@ -195,15 +195,21 @@ import { getFirestore, collection, addDoc, query, where, orderBy, onSnapshot } f
 
             // Real-time listener: triggers instantly whenever data changes
             unsubscribeFeed = onSnapshot(q, (snapshot) => {
-                feedContainer.innerHTML = ""; 
-                if (snapshot.empty) {
-                    feedContainer.innerHTML = "<p>No posts in this room yet. Be the first!</p>";
-                    return;
-                }
+    console.log("Posts found:", snapshot.size);
+
+    feedContainer.innerHTML = "";
+
+    snapshot.forEach((doc) => {
+        console.log(doc.data());
+    });
+});
+
+
                 snapshot.forEach((doc) => {
                     const data = doc.data();
-                    const timeString = data.timestamp ? new Date(data.timestamp.seconds * 1000).toLocaleString() : "Just now";
-                    
+                    const timeString = data.timestamp?.toDate
+        ? data.timestamp.toDate().toLocaleString()
+        : "Just now";
                     const postElement = document.createElement('div');
                     postElement.className = 'post';
                     postElement.innerHTML = `
@@ -233,7 +239,7 @@ import { getFirestore, collection, addDoc, query, where, orderBy, onSnapshot } f
                     author: currentUser.email,
                     text: text,
                     room: roomSelect.value,
-                    timestamp: new Date() // Firebase reads native JS dates
+                   timestamp: serverTimestamp()
                 });
                 postText.value = ""; // Clear input text field
             } catch (err) {
