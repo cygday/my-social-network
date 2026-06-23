@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RoomChat Social Network</title>
+    <style>
+        :root {
+            --bg: #1a1a1a;
+            --surface: #2d2d2d;
+            --accent: #00adb5;
+            --text: #eeeeee;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            width: 100%;
+            max-width: 600px;
+        }
+        .card {
+            background: var(--surface);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        input, select, textarea, button {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            border-radius: 4px;
+            border: 1px solid #444;
+            background: #222;
+            color: white;
+            box-sizing: border-box;
+        }
+        button {
+            background: var(--accent);
+            cursor: pointer;
+            font-weight: bold;
+            border: none;
+        }
+        button:hover { opacity: 0.9; }
+        .hidden { display: none !important; }
+        .post {
+            background: #333;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 10px;
+            border-left: 4px solid var(--accent);
+        }
+        .post-meta { font-size: 0.8rem; color: #aaa; margin-bottom: 5px; }
+        .header-bar { display: flex; justify-content: space-between; align-items: center; }
+        .logout-btn { width: auto; background: #ff4444; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- 1. AUTH SCREEN -->
+        <div id="auth-screen" class="card">
+            <h2>Welcome to RoomChat</h2>
+            <input type="email" id="email" placeholder="Email Address">
+            <input type="password" id="password" placeholder="Password">
+            <button id="login-btn">Log In</button>
+            <button id="signup-btn" style="background:#444;">Create Free Account</button>
+        </div>
+
+        <!-- 2. APP SCREEN -->
+        <div id="app-screen" class="hidden">
+            <div class="card header-bar">
+                <div>Logged in as: <span id="user-display" style="color:var(--accent);"></span></div>
+                <button id="logout-btn" class="logout-btn">Logout</button>
+            </div>
+
+            <!-- Room Selector -->
+            <div class="card">
+                <label for="room-select"><strong>Choose a Group Room:</strong></label>
+                <select id="room-select">
+                    <option value="general">🌍 General Chat</option>
+                    <option value="tech">💻 Tech Talk</option>
+                    <option value="gaming">🎮 Gaming Arena</option>
+                </select>
+            </div>
+
+            <!-- Create Post -->
+            <div class="card">
+                <h3>Share something text-based</h3>
+                <textarea id="post-text" rows="3" placeholder="What's on your mind?"></textarea>
+                <button id="submit-post">Publish to Feed</button>
+            </div>
+
+            <!-- Live Feed Container -->
+            <div class="card">
+                <h3>Live Feed (<span id="current-room-title">General Chat</span>)</h3>
+                <div id="feed-container">Loading live posts...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK Scripts Modules -->
+    <script type="module">
+        import { initializeApp } from "https://gstatic.com";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://gstatic.com";
+        import { getFirestore, collection, addDoc, query, where, orderBy, onSnapshot } from "https://gstatic.com";
+
+        // ⚠️ REPLACE THIS WITH YOUR OWN FIREBASE CONFIG FROM STEP 4
+        const firebaseConfig = {
+           apiKey: "AIzaSyB830A8nKklHBRPJ3kLHFasZEA0hGdSAvM",
+    authDomain: "social-room-app.firebaseapp.com",
+    projectId: "social-room-app",
+    storageBucket: "social-room-app.firebasestorage.app",
+    messagingSenderId: "1015167246361",
+    appId: "1:1015167246361:web:22386499e1381c71c14a88",
+    measurementId: "G-75HEFGWEL5"
+        };
+
+        // Initialize App Services
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Global Variables
+        let currentUser = null;
+        let unsubscribeFeed = null; 
+
+        // DOM Elements
+        const authScreen = document.getElementById('auth-screen');
+        const appScreen = document.getElementById('app-screen');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const userDisplay = document.getElementById('user-display');
+        const roomSelect = document.getElementById('room-select');
+        const currentRoomTitle = document.getElementById('current-room-title');
+        const postText = document.getElementById('post-text');
+        const feedContainer = document.getElementById('feed-container');
+
+        // --- AUTHENTICATION LOGIC ---
+        document.getElementById('signup-btn').addEventListener('click', () => {
+            createUserWithEmailAndPassword(auth, emailInput.value, passwordInput.value)
+                .catch(err => alert(err.message));
+        });
+
+        document.getElementById('login-btn').addEventListener('click', () => {
+            signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value)
+                .catch(err => alert(err.message));
+        });
+
+        document.getElementById('logout-btn').addEventListener('click', () => {
+            signOut(auth);
+        });
+
+        // Monitor Auth State (Are they logged in or logged out?)
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                userDisplay.innerText = user.email;
+                authScreen.classList.add('hidden');
+                appScreen.classList.remove('hidden');
+                startLiveFeed(roomSelect.value); // Load feed for default room
+            } else {
+                currentUser = null;
+                appScreen.classList.add('hidden');
+                authScreen.classList.remove('hidden');
+                if (unsubscribeFeed) unsubscribeFeed(); // Stop listening to db
+            }
+        });
+
+        // --- LIVE FEED LOGIC ---
+        function startLiveFeed(roomName) {
+            // Cut off previous listener if switching rooms
+            if (unsubscribeFeed) unsubscribeFeed();
+
+            currentRoomTitle.innerText = roomSelect.options[roomSelect.selectedIndex].text;
+            feedContainer.innerHTML = "Loading posts...";
+
+            // Query database: look inside "posts" collection for current room, sort by newest
+            const q = query(
+                collection(db, "posts"),
+                where("room", "==", roomName),
+                orderBy("timestamp", "desc")
+            );
+
+            // Real-time listener: triggers instantly whenever data changes
+            unsubscribeFeed = onSnapshot(q, (snapshot) => {
+                feedContainer.innerHTML = ""; 
+                if (snapshot.empty) {
+                    feedContainer.innerHTML = "<p>No posts in this room yet. Be the first!</p>";
+                    return;
+                }
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const timeString = data.timestamp ? new Date(data.timestamp.seconds * 1000).toLocaleString() : "Just now";
+                    
+                    const postElement = document.createElement('div');
+                    postElement.className = 'post';
+                    postElement.innerHTML = `
+                        <div class="post-meta"><strong>${data.author}</strong> • ${timeString}</div>
+                        <div>${data.text}</div>
+                    `;
+                    feedContainer.appendChild(postElement);
+                });
+            }, (error) => {
+                console.error("Error loading feed: ", error);
+            });
+        }
+
+        // Handle Room Changes
+        roomSelect.addEventListener('change', () => {
+            startLiveFeed(roomSelect.value);
+        });
+
+        // --- PUBLISHING LOGIC ---
+        document.getElementById('submit-post').addEventListener('click', async () => {
+            const text = postText.value.trim();
+            if (!text) return alert("Post content cannot be empty!");
+
+            try {
+                // Add a document metadata layout structure to firestore
+                await addDoc(collection(db, "posts"), {
+                    author: currentUser.email,
+                    text: text,
+                    room: roomSelect.value,
+                    timestamp: new Date() // Firebase reads native JS dates
+                });
+                postText.value = ""; // Clear input text field
+            } catch (err) {
+                alert("Error saving post: " + err.message);
+            }
+        });
+    </script>
+</body>
+</html>
+
