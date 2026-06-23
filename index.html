@@ -218,10 +218,7 @@ import { getFirestore, collection, addDoc, query, where, orderBy, onSnapshot, se
                     `;
                     feedContainer.appendChild(postElement);
                 });
-            }, (error) => {
-                console.error("Error loading feed: ", error);
-            });
-        }
+        
 
         // Handle Room Changes
         roomSelect.addEventListener('change', () => {
